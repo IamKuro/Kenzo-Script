@@ -1,19 +1,17 @@
 --[[ 
-    🐟 KENZO HUB - ULTIMATE EDITION 🐟
-    Version: 3.1 (Secure & Grammar Fix)
-    Fitur: 
-    - UI Dark Theme + Minimize + Test Button
-    - Smart Filter: Hanya kirim jika Chance >= 1 in 250k
-    - Anti-Duplicate (No Spam)
-    - Anti-Troll (Secure Regex ^)
-    - Support "obtained a" & "obtained an"
+    🐟 KENZO HUB - FINAL EDITION 🐟
+    Version: 3.2 (Anti-Double Fixed)
+    Fix: 
+    - Menggunakan tick() untuk presisi waktu
+    - ID Unik berdasarkan (Player+Ikan+Berat)
+    - Mencegah double notif dari Legacy & New Chat
 ]]
 
--- ⚠️ KONFIGURASI (WAJIB DIISI)
+-- ⚠️ KONFIGURASI
 getgenv().KenzoConfig = {
-    Token = "ZvKehiTkNVt8YrYn1xAW",  
+    Token = "ZvKehiTkNVt8YrYn1xAW",    
     GroupID = "120363044268395313@g.us", 
-    IsScanning = false                 
+    IsScanning = false                  
 }
 
 -----------------------------------------------------------
@@ -29,8 +27,10 @@ local CoreGui = game:GetService("CoreGui")
 
 local http_request = http_request or request or (syn and syn.request) or (fluxus and fluxus.request)
 
-local lastSentTime = 0
-local lastMessageContent = ""
+-- [FIX BARU] Variabel Anti-Double Lebih Ketat
+local lastCatchID = "" -- Menyimpan "Player-Ikan-Berat"
+local lastCatchTime = 0 -- Menggunakan tick()
+
 local RARITY_THRESHOLD = 250000 
 
 local knownMutations = {
@@ -120,25 +120,29 @@ local function testConnection()
     end
 end
 
--- Fungsi Utama (Processor - SECURE & HYBRID GRAMMAR)
+-- Fungsi Utama (Processor - LOGIKA BARU)
 local function processMessage(msg)
     if not getgenv().KenzoConfig.IsScanning then return end
 
     local cleanMsg = string.gsub(msg, "<.->", "")
 
-    -- Anti-Duplicate
-    if cleanMsg == lastMessageContent and (os.time() - lastSentTime) < 5 then
-        return 
-    end
-
+    -- 1. Baca Dulu Datanya
     local player, fullFishName, weight, chanceRaw = string.match(cleanMsg, "^%[Server%]:%s*(.-)%s+obtained%s+an?%s+(.-)%s+(%([%d%.]+kg%))%s+with%s+a%s+(.-)%s+chance")
     
-    if player and fullFishName and chanceRaw then
+    if player and fullFishName and weight then
+        
+        -- [LOGIKA ANTI-DOUBLE V2]
+        local currentID = player .. "-" .. fullFishName .. "-" .. weight
+        
+        if currentID == lastCatchID and (tick() - lastCatchTime) < 10 then
+            return
+        end
+
         local rarityValue = parseChanceValue(chanceRaw)
         
         if rarityValue >= RARITY_THRESHOLD then
-            lastSentTime = os.time()
-            lastMessageContent = cleanMsg 
+            lastCatchID = currentID
+            lastCatchTime = tick() 
             
             local detectedMutation = "None"
             local realFishName = fullFishName
@@ -234,7 +238,7 @@ Version.BackgroundTransparency = 1
 Version.Position = UDim2.new(0.65, 0, 0, 0)
 Version.Size = UDim2.new(0.25, 0, 1, 0)
 Version.Font = Enum.Font.Gotham
-Version.Text = "V3.1 Secure"
+Version.Text = "V3.2 Fix"
 Version.TextColor3 = Color3.fromRGB(150, 150, 150)
 Version.TextSize = 12
 
@@ -407,4 +411,4 @@ MiniButton.MouseButton1Click:Connect(function()
     MiniButton.Visible = false
 end)
 
-game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V3.1", Text="Secure & Complete!", Duration=5})
+game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V3.2", Text="Anti-Double Active!", Duration=5})
