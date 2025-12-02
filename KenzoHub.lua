@@ -1,13 +1,19 @@
 --[[ 
     🐟 KENZO HUB - ULTIMATE EDITION 🐟
-    Version: 3.0 (Test & Minimize)
+    Version: 3.1 (Secure & Grammar Fix)
+    Fitur: 
+    - UI Dark Theme + Minimize + Test Button
+    - Smart Filter: Hanya kirim jika Chance >= 1 in 250k
+    - Anti-Duplicate (No Spam)
+    - Anti-Troll (Secure Regex ^)
+    - Support "obtained a" & "obtained an"
 ]]
 
--- ⚠️ KONFIGURASI
+-- ⚠️ KONFIGURASI (WAJIB DIISI)
 getgenv().KenzoConfig = {
-    Token = "ZvKehiTkNVt8YrYn1xAW", 
-    GroupID = "120363044268395313@g.us",       
-    IsScanning = false                           
+    Token = "ZvKehiTkNVt8YrYn1xAW",  
+    GroupID = "120363044268395313@g.us", 
+    IsScanning = false                 
 }
 
 -----------------------------------------------------------
@@ -81,7 +87,7 @@ local function sendWhatsApp(data)
     end
 end
 
--- [FITUR BARU] Fungsi Test Koneksi Manual
+-- [FITUR] Fungsi Test Koneksi Manual
 local function testConnection()
     local caption = 
         "*Kenzo HUB | Test Mode*\n" ..
@@ -114,17 +120,18 @@ local function testConnection()
     end
 end
 
--- Fungsi Utama (Processor)
+-- Fungsi Utama (Processor - SECURE & HYBRID GRAMMAR)
 local function processMessage(msg)
     if not getgenv().KenzoConfig.IsScanning then return end
 
     local cleanMsg = string.gsub(msg, "<.->", "")
 
+    -- Anti-Duplicate
     if cleanMsg == lastMessageContent and (os.time() - lastSentTime) < 5 then
         return 
     end
 
-    local player, fullFishName, weight, chanceRaw = string.match(cleanMsg, "%[Server%]:%s*(.-)%s+obtained%s+a%s+(.-)%s+(%([%d%.]+kg%))%s+with%s+a%s+(.-)%s+chance")
+    local player, fullFishName, weight, chanceRaw = string.match(cleanMsg, "^%[Server%]:%s*(.-)%s+obtained%s+an?%s+(.-)%s+(%([%d%.]+kg%))%s+with%s+a%s+(.-)%s+chance")
     
     if player and fullFishName and chanceRaw then
         local rarityValue = parseChanceValue(chanceRaw)
@@ -174,13 +181,13 @@ local MiniButton = Instance.new("TextButton")
 MiniButton.Name = "MiniButton"
 MiniButton.Parent = ScreenGui
 MiniButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-MiniButton.Position = UDim2.new(0, 10, 0.5, -25) -- Kiri Tengah
+MiniButton.Position = UDim2.new(0, 10, 0.5, -25) 
 MiniButton.Size = UDim2.new(0, 50, 0, 50)
 MiniButton.Font = Enum.Font.GothamBold
 MiniButton.Text = "K"
 MiniButton.TextColor3 = Color3.fromRGB(85, 255, 255)
 MiniButton.TextSize = 24
-MiniButton.Visible = false -- Tersembunyi Awalnya
+MiniButton.Visible = false 
 local MiniCorner = Instance.new("UICorner")
 MiniCorner.CornerRadius = UDim.new(0, 10)
 MiniCorner.Parent = MiniButton
@@ -227,7 +234,7 @@ Version.BackgroundTransparency = 1
 Version.Position = UDim2.new(0.65, 0, 0, 0)
 Version.Size = UDim2.new(0.25, 0, 1, 0)
 Version.Font = Enum.Font.Gotham
-Version.Text = "V3.0"
+Version.Text = "V3.1 Secure"
 Version.TextColor3 = Color3.fromRGB(150, 150, 150)
 Version.TextSize = 12
 
@@ -300,11 +307,11 @@ local CircleCorner = Instance.new("UICorner")
 CircleCorner.CornerRadius = UDim.new(1, 0)
 CircleCorner.Parent = Circle
 
--- FITUR 2: TEST BUTTON (BARU)
+-- FITUR 2: TEST BUTTON
 local TestBtn = Instance.new("TextButton")
 TestBtn.Parent = Content
 TestBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-TestBtn.Position = UDim2.new(0, 0, 0, 60) -- Di bawah toggle
+TestBtn.Position = UDim2.new(0, 0, 0, 60) 
 TestBtn.Size = UDim2.new(0.95, 0, 0, 40)
 TestBtn.Font = Enum.Font.GothamBold
 TestBtn.Text = "📢  TEST WHATSAPP (CLICK ME)"
@@ -382,7 +389,7 @@ end)
 local MinBtn = Instance.new("TextButton")
 MinBtn.Parent = Header
 MinBtn.BackgroundTransparency = 1
-MinBtn.Position = UDim2.new(1, -60, 0, 0) -- Sebelah kiri tombol X
+MinBtn.Position = UDim2.new(1, -60, 0, 0) 
 MinBtn.Size = UDim2.new(0, 30, 1, 0)
 MinBtn.Font = Enum.Font.GothamBold
 MinBtn.Text = "-"
@@ -400,4 +407,4 @@ MiniButton.MouseButton1Click:Connect(function()
     MiniButton.Visible = false
 end)
 
-game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V3", Text="Minimize & Test Ready!", Duration=5})
+game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V3.1", Text="Secure & Complete!", Duration=5})
