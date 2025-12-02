@@ -1,22 +1,17 @@
 --[[ 
     🐟 KENZO HUB - ULTIMATE EDITION 🐟
-    Version: 2.0 (Math Parser)
-    Fitur: 
-    - UI Dark Theme (Makori Style)
-    - Anti-Duplicate (Tidak spam pesan sama)
-    - Smart Filter: Hanya kirim jika Chance >= 1 in 250k
-    - Support satuan K (Ribu), M (Juta), B (Miliar)
+    Version: 3.0 (Test & Minimize)
 ]]
 
--- ⚠️ KONFIGURASI (WAJIB DIISI)
+-- ⚠️ KONFIGURASI
 getgenv().KenzoConfig = {
-    Token = "ZvKehiTkNVt8YrYn1xAW",    -- Token Fonnte
-    GroupID = "120363044268395313@g.us",         -- ID Grup Valid Kamu
-    IsScanning = false                           -- Status Awal (OFF)
+    Token = "ZvKehiTkNVt8YrYn1xAW", 
+    GroupID = "120363044268395313@g.us",       
+    IsScanning = false                           
 }
 
 -----------------------------------------------------------
--- 1. BAGIAN LOGIKA SISTEM (BACKEND CANGGIH)
+-- 1. BAGIAN LOGIKA SISTEM (BACKEND)
 -----------------------------------------------------------
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
@@ -28,12 +23,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local http_request = http_request or request or (syn and syn.request) or (fluxus and fluxus.request)
 
--- Variabel Anti-Duplicate
 local lastSentTime = 0
 local lastMessageContent = ""
-
--- [SETTING BATAS SECRET]
--- 250k = 250000. Ganti angka ini jika batasan berubah.
 local RARITY_THRESHOLD = 250000 
 
 local knownMutations = {
@@ -46,26 +37,20 @@ local knownMutations = {
 
 -- [MESIN PENERJEMAH K/M/B]
 local function parseChanceValue(chanceString)
-    -- Ambil angka dan huruf belakangnya
     local valueStr, suffix = string.match(chanceString, "1 in ([%d%.]+)(%a?)")
-    
     if not valueStr then return 0 end
-    
     local number = tonumber(valueStr)
     if not number then return 0 end
-    
     local multiplier = 1
     local s = string.lower(suffix or "")
-    
-    if s == "k" then multiplier = 1000        -- Ribuan
-    elseif s == "m" then multiplier = 1000000     -- Jutaan
-    elseif s == "b" then multiplier = 1000000000  -- Miliar
+    if s == "k" then multiplier = 1000        
+    elseif s == "m" then multiplier = 1000000     
+    elseif s == "b" then multiplier = 1000000000  
     end
-    
     return number * multiplier
 end
 
--- Fungsi Kirim WA
+-- Fungsi Kirim WA (Normal)
 local function sendWhatsApp(data)
     if not getgenv().KenzoConfig.IsScanning then return end 
 
@@ -96,27 +81,55 @@ local function sendWhatsApp(data)
     end
 end
 
+-- [FITUR BARU] Fungsi Test Koneksi Manual
+local function testConnection()
+    local caption = 
+        "*Kenzo HUB | Test Mode*\n" ..
+        "✅ *Koneksi Berhasil!*\n\n" ..
+        "Token & ID Grup Valid.\n" ..
+        "Script siap digunakan.\n\n" ..
+        "_" .. os.date("%A, %H:%M") .. "_"
+
+    local body = {
+        ["target"] = getgenv().KenzoConfig.GroupID,
+        ["message"] = caption,
+        ["delay"] = "1"
+    }
+
+    if http_request then
+        local response = http_request({
+            Url = "https://api.fonnte.com/send",
+            Method = "POST",
+            Headers = {["Authorization"] = getgenv().KenzoConfig.Token, ["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(body)
+        })
+        
+        if response and response.StatusCode == 200 then
+            game.StarterGui:SetCore("SendNotification", {Title="Test Sukses", Text="Cek WA sekarang!", Duration=3})
+        else
+            game.StarterGui:SetCore("SendNotification", {Title="Test Gagal", Text="Cek Token/ID Salah!", Duration=3})
+        end
+    else
+        game.StarterGui:SetCore("SendNotification", {Title="Error", Text="Executor tidak support HTTP", Duration=3})
+    end
+end
+
 -- Fungsi Utama (Processor)
 local function processMessage(msg)
     if not getgenv().KenzoConfig.IsScanning then return end
 
     local cleanMsg = string.gsub(msg, "<.->", "")
 
-    -- Cek Duplikat (Pesan sama dalam 5 detik = STOP)
     if cleanMsg == lastMessageContent and (os.time() - lastSentTime) < 5 then
         return 
     end
 
-    -- Baca Format Server
     local player, fullFishName, weight, chanceRaw = string.match(cleanMsg, "%[Server%]:%s*(.-)%s+obtained%s+a%s+(.-)%s+(%([%d%.]+kg%))%s+with%s+a%s+(.-)%s+chance")
     
     if player and fullFishName and chanceRaw then
-        -- Hitung Angka Peluang
         local rarityValue = parseChanceValue(chanceRaw)
         
-        -- FILTER: Hanya lolos jika >= 250.000
         if rarityValue >= RARITY_THRESHOLD then
-            
             lastSentTime = os.time()
             lastMessageContent = cleanMsg 
             
@@ -147,7 +160,7 @@ TextChatService.MessageReceived:Connect(function(textChatMessage)
 end)
 
 -----------------------------------------------------------
--- 2. BAGIAN TAMPILAN UI (FRONTEND - MAKORI STYLE)
+-- 2. BAGIAN TAMPILAN UI (FRONTEND - V3)
 -----------------------------------------------------------
 if CoreGui:FindFirstChild("KenzoHUB") then CoreGui.KenzoHUB:Destroy() end
 
@@ -156,6 +169,27 @@ ScreenGui.Name = "KenzoHUB"
 ScreenGui.Parent = CoreGui
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
+-- [TOMBOL MINIMIZE (KECIL)]
+local MiniButton = Instance.new("TextButton")
+MiniButton.Name = "MiniButton"
+MiniButton.Parent = ScreenGui
+MiniButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MiniButton.Position = UDim2.new(0, 10, 0.5, -25) -- Kiri Tengah
+MiniButton.Size = UDim2.new(0, 50, 0, 50)
+MiniButton.Font = Enum.Font.GothamBold
+MiniButton.Text = "K"
+MiniButton.TextColor3 = Color3.fromRGB(85, 255, 255)
+MiniButton.TextSize = 24
+MiniButton.Visible = false -- Tersembunyi Awalnya
+local MiniCorner = Instance.new("UICorner")
+MiniCorner.CornerRadius = UDim.new(0, 10)
+MiniCorner.Parent = MiniButton
+local MiniStroke = Instance.new("UIStroke")
+MiniStroke.Parent = MiniButton
+MiniStroke.Color = Color3.fromRGB(85, 255, 255)
+MiniStroke.Thickness = 2
+
+-- [FRAME UTAMA]
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
@@ -190,10 +224,10 @@ Title.TextXAlignment = Enum.TextXAlignment.Left
 local Version = Instance.new("TextLabel")
 Version.Parent = Header
 Version.BackgroundTransparency = 1
-Version.Position = UDim2.new(0.7, 0, 0, 0)
+Version.Position = UDim2.new(0.65, 0, 0, 0)
 Version.Size = UDim2.new(0.25, 0, 1, 0)
 Version.Font = Enum.Font.Gotham
-Version.Text = "Ver 2.0 Ultimate"
+Version.Text = "V3.0"
 Version.TextColor3 = Color3.fromRGB(150, 150, 150)
 Version.TextSize = 12
 
@@ -218,14 +252,14 @@ local TabCorner = Instance.new("UICorner")
 TabCorner.CornerRadius = UDim.new(0, 6)
 TabCorner.Parent = TabButton
 
--- Content
+-- Content Area
 local Content = Instance.new("Frame")
 Content.Parent = MainFrame
 Content.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 Content.Position = UDim2.new(0, 130, 0, 50)
 Content.Size = UDim2.new(0, 310, 1, -50)
 
--- Feature Toggle
+-- FITUR 1: TOGGLE
 local FeatureFrame = Instance.new("Frame")
 FeatureFrame.Parent = Content
 FeatureFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
@@ -242,12 +276,11 @@ FeatureLabel.BackgroundTransparency = 1
 FeatureLabel.Position = UDim2.new(0, 15, 0, 0)
 FeatureLabel.Size = UDim2.new(0.6, 0, 1, 0)
 FeatureLabel.Font = Enum.Font.GothamSemibold
-FeatureLabel.Text = "Auto Send WhatsApp (>250k)"
+FeatureLabel.Text = "Auto Send WhatsApp"
 FeatureLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 FeatureLabel.TextSize = 14
 FeatureLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- Toggle Button
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Parent = FeatureFrame
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
@@ -267,7 +300,21 @@ local CircleCorner = Instance.new("UICorner")
 CircleCorner.CornerRadius = UDim.new(1, 0)
 CircleCorner.Parent = Circle
 
--- Toggle Logic
+-- FITUR 2: TEST BUTTON (BARU)
+local TestBtn = Instance.new("TextButton")
+TestBtn.Parent = Content
+TestBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+TestBtn.Position = UDim2.new(0, 0, 0, 60) -- Di bawah toggle
+TestBtn.Size = UDim2.new(0.95, 0, 0, 40)
+TestBtn.Font = Enum.Font.GothamBold
+TestBtn.Text = "📢  TEST WHATSAPP (CLICK ME)"
+TestBtn.TextColor3 = Color3.fromRGB(85, 255, 255)
+TestBtn.TextSize = 14
+local TestCorner = Instance.new("UICorner")
+TestCorner.CornerRadius = UDim.new(0, 8)
+TestCorner.Parent = TestBtn
+
+-- Logic: Toggle
 local isOn = false
 ToggleBtn.MouseButton1Click:Connect(function()
     isOn = not isOn
@@ -284,7 +331,13 @@ ToggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Drag Logic
+-- Logic: Test Button
+TestBtn.MouseButton1Click:Connect(function()
+    game.StarterGui:SetCore("SendNotification", {Title="Testing...", Text="Mengirim pesan tes...", Duration=2})
+    testConnection()
+end)
+
+-- Logic: Drag MainFrame
 local dragging, dragInput, dragStart, startPos
 local function update(input)
     local delta = input.Position - dragStart
@@ -309,7 +362,9 @@ UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then update(input) end
 end)
 
--- Close Button
+-- TOMBOL HEADER (CLOSE & MINIMIZE)
+
+-- Close Button (X)
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Parent = Header
 CloseBtn.BackgroundTransparency = 1
@@ -323,4 +378,26 @@ CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
-game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V2", Text="Siap Berburu Secret!", Duration=5})
+-- Minimize Button (-)
+local MinBtn = Instance.new("TextButton")
+MinBtn.Parent = Header
+MinBtn.BackgroundTransparency = 1
+MinBtn.Position = UDim2.new(1, -60, 0, 0) -- Sebelah kiri tombol X
+MinBtn.Size = UDim2.new(0, 30, 1, 0)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.TextSize = 20
+
+-- Logic: Minimize & Restore
+MinBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    MiniButton.Visible = true
+end)
+
+MiniButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    MiniButton.Visible = false
+end)
+
+game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V3", Text="Minimize & Test Ready!", Duration=5})
