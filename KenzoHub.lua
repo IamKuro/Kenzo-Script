@@ -60,8 +60,8 @@ local function sendWhatsApp(data)
     if not getgenv().KenzoConfig.IsScanning then return end 
 
     local caption = 
-        "*Kenzo HUB | Rare Catch!*\n" ..
-        "🚨 *Filter:" .. getgenv().KenzoConfig.Threshold .. "+*\n\n" ..
+        "*Kenzo HUB | Secret Catch!*\n" ..
+        "🚨 *ALERT! Rare Catch (".. data.chance ..")*\n\n" ..
         "*👤 Player:* " .. data.player .. "\n" ..
         "*🐟 Fish:* " .. data.fish .. "\n" ..
         "*🧬 Mutation:* " .. data.mutation .. "\n" ..
