@@ -62,7 +62,7 @@ local function sendWhatsApp(data)
 
     local caption = 
         "*Kenzo HUB | Secret Found!*\n" ..
-        "🚨 *ALERT! Rare Catch (1 in ".. data.chance ..")*\n\n" ..
+        "🚨 *ALERT! Rare Catch (".. data.chance ..")*\n\n" ..
         "*👤 Player:* " .. data.player .. "\n" ..
         "*🐟 Fish:* " .. data.fish .. "\n" ..
         "*🧬 Mutation:* " .. data.mutation .. "\n" ..
