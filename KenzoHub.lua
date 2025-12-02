@@ -1,17 +1,19 @@
 --[[ 
-    🐟 KENZO HUB - FINAL EDITION 🐟
-    Version: 3.2 (Anti-Double Fixed)
-    Fix: 
-    - Menggunakan tick() untuk presisi waktu
-    - ID Unik berdasarkan (Player+Ikan+Berat)
-    - Mencegah double notif dari Legacy & New Chat
+    🐟 KENZO HUB - GOD MODE EDITION 🐟
+    Version: 4.0 (Custom Threshold)
+    Fitur: 
+    - [NEW] Input Box untuk atur batas Rarity sendiri (Support 500k, 1m, dll)
+    - UI Makori Style + Minimize + Test Button
+    - Smart Filter & Math Parser
+    - Anti-Duplicate & Anti-Troll
 ]]
 
--- ⚠️ KONFIGURASI
+-- ⚠️ KONFIGURASI AWAL
 getgenv().KenzoConfig = {
     Token = "ZvKehiTkNVt8YrYn1xAW",    
     GroupID = "120363044268395313@g.us", 
-    IsScanning = false                  
+    IsScanning = false,                 
+    Threshold = 250000                   
 }
 
 -----------------------------------------------------------
@@ -27,11 +29,8 @@ local CoreGui = game:GetService("CoreGui")
 
 local http_request = http_request or request or (syn and syn.request) or (fluxus and fluxus.request)
 
--- [FIX BARU] Variabel Anti-Double Lebih Ketat
-local lastCatchID = "" -- Menyimpan "Player-Ikan-Berat"
-local lastCatchTime = 0 -- Menggunakan tick()
-
-local RARITY_THRESHOLD = 250000 
+local lastSentTime = 0
+local lastMessageContent = ""
 
 local knownMutations = {
     "Big", "Giant", "Skeleton", "Albino", "Dark", "Shiny", "Tiny", 
@@ -42,27 +41,27 @@ local knownMutations = {
 }
 
 -- [MESIN PENERJEMAH K/M/B]
-local function parseChanceValue(chanceString)
-    local valueStr, suffix = string.match(chanceString, "1 in ([%d%.]+)(%a?)")
-    if not valueStr then return 0 end
-    local number = tonumber(valueStr)
-    if not number then return 0 end
-    local multiplier = 1
-    local s = string.lower(suffix or "")
-    if s == "k" then multiplier = 1000        
-    elseif s == "m" then multiplier = 1000000     
-    elseif s == "b" then multiplier = 1000000000  
+local function parseValue(str)
+    local cleanStr = string.lower(str)
+    local num = tonumber(string.match(cleanStr, "[%d%.]+"))
+    if not num then return 0 end
+    
+    local mult = 1
+    if string.find(cleanStr, "k") then mult = 1000
+    elseif string.find(cleanStr, "m") then mult = 1000000
+    elseif string.find(cleanStr, "b") then mult = 1000000000
     end
-    return number * multiplier
+    
+    return num * mult
 end
 
--- Fungsi Kirim WA (Normal)
+-- Fungsi Kirim WA
 local function sendWhatsApp(data)
     if not getgenv().KenzoConfig.IsScanning then return end 
 
     local caption = 
-        "*Kenzo HUB | Secret Found!*\n" ..
-        "🚨 *ALERT! Rare Catch (".. data.chance ..")*\n\n" ..
+        "*Kenzo HUB | Rare Catch!*\n" ..
+        "🚨 *Filter:" .. getgenv().KenzoConfig.Threshold .. "+*\n\n" ..
         "*👤 Player:* " .. data.player .. "\n" ..
         "*🐟 Fish:* " .. data.fish .. "\n" ..
         "*🧬 Mutation:* " .. data.mutation .. "\n" ..
@@ -87,13 +86,12 @@ local function sendWhatsApp(data)
     end
 end
 
--- [FITUR] Fungsi Test Koneksi Manual
+-- Test Connection
 local function testConnection()
     local caption = 
         "*Kenzo HUB | Test Mode*\n" ..
-        "✅ *Koneksi Berhasil!*\n\n" ..
-        "Token & ID Grup Valid.\n" ..
-        "Script siap digunakan.\n\n" ..
+        "✅ *Koneksi Berhasil!*\n" ..
+        "Current Filter: " .. getgenv().KenzoConfig.Threshold .. "\n" ..
         "_" .. os.date("%A, %H:%M") .. "_"
 
     local body = {
@@ -109,40 +107,34 @@ local function testConnection()
             Headers = {["Authorization"] = getgenv().KenzoConfig.Token, ["Content-Type"] = "application/json"},
             Body = HttpService:JSONEncode(body)
         })
-        
         if response and response.StatusCode == 200 then
             game.StarterGui:SetCore("SendNotification", {Title="Test Sukses", Text="Cek WA sekarang!", Duration=3})
         else
-            game.StarterGui:SetCore("SendNotification", {Title="Test Gagal", Text="Cek Token/ID Salah!", Duration=3})
+            game.StarterGui:SetCore("SendNotification", {Title="Test Gagal", Text="Cek Token/ID!", Duration=3})
         end
-    else
-        game.StarterGui:SetCore("SendNotification", {Title="Error", Text="Executor tidak support HTTP", Duration=3})
     end
 end
 
--- Fungsi Utama (Processor - LOGIKA BARU)
+-- Processor (Menggunakan Dynamic Threshold)
 local function processMessage(msg)
     if not getgenv().KenzoConfig.IsScanning then return end
 
     local cleanMsg = string.gsub(msg, "<.->", "")
 
-    -- 1. Baca Dulu Datanya
+    -- Anti-Duplicate
+    if cleanMsg == lastMessageContent and (os.time() - lastSentTime) < 5 then
+        return 
+    end
+
     local player, fullFishName, weight, chanceRaw = string.match(cleanMsg, "^%[Server%]:%s*(.-)%s+obtained%s+an?%s+(.-)%s+(%([%d%.]+kg%))%s+with%s+a%s+(.-)%s+chance")
     
-    if player and fullFishName and weight then
+    if player and fullFishName and chanceRaw then
+        local rarityValue = parseValue(chanceRaw)
         
-        -- [LOGIKA ANTI-DOUBLE V2]
-        local currentID = player .. "-" .. fullFishName .. "-" .. weight
-        
-        if currentID == lastCatchID and (tick() - lastCatchTime) < 10 then
-            return
-        end
-
-        local rarityValue = parseChanceValue(chanceRaw)
-        
-        if rarityValue >= RARITY_THRESHOLD then
-            lastCatchID = currentID
-            lastCatchTime = tick() 
+        -- [LOGIKA BARU] Bandingkan dengan Config yang bisa diubah user
+        if rarityValue >= getgenv().KenzoConfig.Threshold then
+            lastSentTime = os.time()
+            lastMessageContent = cleanMsg 
             
             local detectedMutation = "None"
             local realFishName = fullFishName
@@ -160,7 +152,7 @@ local function processMessage(msg)
     end
 end
 
--- Listener Chat
+-- Listener
 if ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents") then
     ReplicatedStorage.DefaultChatSystemChatEvents.OnMessageDoneFiltering.OnClientEvent:Connect(function(data)
         if data and data.Message then processMessage(data.Message) end
@@ -171,7 +163,7 @@ TextChatService.MessageReceived:Connect(function(textChatMessage)
 end)
 
 -----------------------------------------------------------
--- 2. BAGIAN TAMPILAN UI (FRONTEND - V3)
+-- 2. BAGIAN TAMPILAN UI (FRONTEND - V4)
 -----------------------------------------------------------
 if CoreGui:FindFirstChild("KenzoHUB") then CoreGui.KenzoHUB:Destroy() end
 
@@ -180,7 +172,6 @@ ScreenGui.Name = "KenzoHUB"
 ScreenGui.Parent = CoreGui
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- [TOMBOL MINIMIZE (KECIL)]
 local MiniButton = Instance.new("TextButton")
 MiniButton.Name = "MiniButton"
 MiniButton.Parent = ScreenGui
@@ -200,15 +191,13 @@ MiniStroke.Parent = MiniButton
 MiniStroke.Color = Color3.fromRGB(85, 255, 255)
 MiniStroke.Thickness = 2
 
--- [FRAME UTAMA]
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35) 
 MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
-MainFrame.Size = UDim2.new(0, 450, 0, 280) 
+MainFrame.Size = UDim2.new(0, 450, 0, 320) -- Diperbesar sedikit
 MainFrame.ClipsDescendants = true
-
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 10)
 UICorner.Parent = MainFrame
@@ -221,7 +210,6 @@ Header.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Header.Size = UDim2.new(1, 0, 0, 40)
 
 local Title = Instance.new("TextLabel")
-Title.Name = "Title"
 Title.Parent = Header
 Title.BackgroundTransparency = 1
 Title.Position = UDim2.new(0, 15, 0, 0)
@@ -238,7 +226,7 @@ Version.BackgroundTransparency = 1
 Version.Position = UDim2.new(0.65, 0, 0, 0)
 Version.Size = UDim2.new(0.25, 0, 1, 0)
 Version.Font = Enum.Font.Gotham
-Version.Text = "V3.2 Fix"
+Version.Text = "V4.0 God Mode"
 Version.TextColor3 = Color3.fromRGB(150, 150, 150)
 Version.TextSize = 12
 
@@ -263,7 +251,7 @@ local TabCorner = Instance.new("UICorner")
 TabCorner.CornerRadius = UDim.new(0, 6)
 TabCorner.Parent = TabButton
 
--- Content Area
+-- Content
 local Content = Instance.new("Frame")
 Content.Parent = MainFrame
 Content.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -276,7 +264,6 @@ FeatureFrame.Parent = Content
 FeatureFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 FeatureFrame.Size = UDim2.new(0.95, 0, 0, 50)
 FeatureFrame.Position = UDim2.new(0, 0, 0, 0)
-
 local FeatureCorner = Instance.new("UICorner")
 FeatureCorner.CornerRadius = UDim.new(0, 8)
 FeatureCorner.Parent = FeatureFrame
@@ -301,7 +288,6 @@ ToggleBtn.Text = ""
 local ToggleCorner = Instance.new("UICorner")
 ToggleCorner.CornerRadius = UDim.new(1, 0)
 ToggleCorner.Parent = ToggleBtn
-
 local Circle = Instance.new("Frame")
 Circle.Parent = ToggleBtn
 Circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -311,26 +297,10 @@ local CircleCorner = Instance.new("UICorner")
 CircleCorner.CornerRadius = UDim.new(1, 0)
 CircleCorner.Parent = Circle
 
--- FITUR 2: TEST BUTTON
-local TestBtn = Instance.new("TextButton")
-TestBtn.Parent = Content
-TestBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-TestBtn.Position = UDim2.new(0, 0, 0, 60) 
-TestBtn.Size = UDim2.new(0.95, 0, 0, 40)
-TestBtn.Font = Enum.Font.GothamBold
-TestBtn.Text = "📢  TEST WHATSAPP (CLICK ME)"
-TestBtn.TextColor3 = Color3.fromRGB(85, 255, 255)
-TestBtn.TextSize = 14
-local TestCorner = Instance.new("UICorner")
-TestCorner.CornerRadius = UDim.new(0, 8)
-TestCorner.Parent = TestBtn
-
--- Logic: Toggle
 local isOn = false
 ToggleBtn.MouseButton1Click:Connect(function()
     isOn = not isOn
     getgenv().KenzoConfig.IsScanning = isOn
-
     if isOn then
         TweenService:Create(Circle, TweenInfo.new(0.2), {Position = UDim2.new(1, -22, 0.5, -10)}):Play()
         TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 255, 200)}):Play()
@@ -342,13 +312,105 @@ ToggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Logic: Test Button
+-- [NEW] FITUR 2: CUSTOM THRESHOLD INPUT
+local InputFrame = Instance.new("Frame")
+InputFrame.Parent = Content
+InputFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+InputFrame.Size = UDim2.new(0.95, 0, 0, 50)
+InputFrame.Position = UDim2.new(0, 0, 0, 60)
+local InputCorner = Instance.new("UICorner")
+InputCorner.CornerRadius = UDim.new(0, 8)
+InputCorner.Parent = InputFrame
+
+local InputLabel = Instance.new("TextLabel")
+InputLabel.Parent = InputFrame
+InputLabel.BackgroundTransparency = 1
+InputLabel.Position = UDim2.new(0, 15, 0, 0)
+InputLabel.Size = UDim2.new(0.5, 0, 1, 0)
+InputLabel.Font = Enum.Font.GothamSemibold
+InputLabel.Text = "Min. Chance Filter:"
+InputLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+InputLabel.TextSize = 14
+InputLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local InputBox = Instance.new("TextBox")
+InputBox.Parent = InputFrame
+InputBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+InputBox.Position = UDim2.new(0.55, 0, 0.2, 0)
+InputBox.Size = UDim2.new(0.4, 0, 0.6, 0)
+InputBox.Font = Enum.Font.GothamBold
+InputBox.Text = "250k" -- Default Display
+InputBox.TextColor3 = Color3.fromRGB(85, 255, 255)
+InputBox.TextSize = 14
+InputBox.PlaceholderText = "e.g 1m"
+local InputBoxCorner = Instance.new("UICorner")
+InputBoxCorner.CornerRadius = UDim.new(0, 6)
+InputBoxCorner.Parent = InputBox
+
+-- Logic Input Box
+InputBox.FocusLost:Connect(function(enterPressed)
+    local text = InputBox.Text
+    local val = parseValue(text)
+    
+    if val > 0 then
+        getgenv().KenzoConfig.Threshold = val
+        InputBox.Text = text -- Biarkan teksnya (misal "1m")
+        game.StarterGui:SetCore("SendNotification", {
+            Title="Filter Updated", 
+            Text="Min Chance set to: " .. text, 
+            Duration=3
+        })
+    else
+        InputBox.Text = "Invalid"
+        wait(1)
+        InputBox.Text = "250k"
+    end
+end)
+
+-- FITUR 3: TEST BUTTON
+local TestBtn = Instance.new("TextButton")
+TestBtn.Parent = Content
+TestBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+TestBtn.Position = UDim2.new(0, 0, 0, 120) 
+TestBtn.Size = UDim2.new(0.95, 0, 0, 40)
+TestBtn.Font = Enum.Font.GothamBold
+TestBtn.Text = "📢  TEST WHATSAPP"
+TestBtn.TextColor3 = Color3.fromRGB(85, 255, 255)
+TestBtn.TextSize = 14
+local TestCorner = Instance.new("UICorner")
+TestCorner.CornerRadius = UDim.new(0, 8)
+TestCorner.Parent = TestBtn
+
 TestBtn.MouseButton1Click:Connect(function()
-    game.StarterGui:SetCore("SendNotification", {Title="Testing...", Text="Mengirim pesan tes...", Duration=2})
+    game.StarterGui:SetCore("SendNotification", {Title="Testing...", Text="Sending test message...", Duration=2})
     testConnection()
 end)
 
--- Logic: Drag MainFrame
+-- Header Buttons
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Parent = Header
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.Size = UDim2.new(0, 30, 1, 0)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+CloseBtn.TextSize = 16
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Parent = Header
+MinBtn.BackgroundTransparency = 1
+MinBtn.Position = UDim2.new(1, -60, 0, 0) 
+MinBtn.Size = UDim2.new(0, 30, 1, 0)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinBtn.TextSize = 20
+MinBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false; MiniButton.Visible = true end)
+MiniButton.MouseButton1Click:Connect(function() MainFrame.Visible = true; MiniButton.Visible = false end)
+
+-- Drag Logic
 local dragging, dragInput, dragStart, startPos
 local function update(input)
     local delta = input.Position - dragStart
@@ -359,56 +421,12 @@ MainFrame.InputBegan:Connect(function(input)
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
-        end)
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
     end
 end)
 MainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
 end)
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then update(input) end
-end)
+UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then update(input) end end)
 
--- TOMBOL HEADER (CLOSE & MINIMIZE)
-
--- Close Button (X)
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Parent = Header
-CloseBtn.BackgroundTransparency = 1
-CloseBtn.Position = UDim2.new(1, -30, 0, 0)
-CloseBtn.Size = UDim2.new(0, 30, 1, 0)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-CloseBtn.TextSize = 16
-CloseBtn.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
-end)
-
--- Minimize Button (-)
-local MinBtn = Instance.new("TextButton")
-MinBtn.Parent = Header
-MinBtn.BackgroundTransparency = 1
-MinBtn.Position = UDim2.new(1, -60, 0, 0) 
-MinBtn.Size = UDim2.new(0, 30, 1, 0)
-MinBtn.Font = Enum.Font.GothamBold
-MinBtn.Text = "-"
-MinBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-MinBtn.TextSize = 20
-
--- Logic: Minimize & Restore
-MinBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-    MiniButton.Visible = true
-end)
-
-MiniButton.MouseButton1Click:Connect(function()
-    MainFrame.Visible = true
-    MiniButton.Visible = false
-end)
-
-game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V3.2", Text="Anti-Double Active!", Duration=5})
+game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V4.0", Text="Custom Threshold Ready!", Duration=5})
