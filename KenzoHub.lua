@@ -1,11 +1,11 @@
 --[[ 
     🐟 KENZO HUB - GOD MODE EDITION 🐟
-    Version: 4.2 (Anti-Duplicate Fix)
+    Version: 4.3 (Anti-Stacking Fix)
     Fitur: 
-    - [FIX] Menggunakan ID Unik + tick() agar tidak spam 3x
+    - [FIX] Auto-Disconnect: Mematikan script lama saat di-execute ulang (Solusi 6 notif)
+    - Anti-Duplicate: Filter ID Unik & Waktu
     - Input Box Custom Threshold
     - UI Makori Style + Minimize + Test Button
-    - Smart Filter & Math Parser
 ]]
 
 -- ⚠️ KONFIGURASI AWAL
@@ -13,12 +13,20 @@ getgenv().KenzoConfig = {
     Token = "ZvKehiTkNVt8YrYn1xAW",    
     GroupID = "120363044268395313@g.us", 
     IsScanning = false,                 
-    Threshold = 250000                  
+    Threshold = 250000                   
 }
 
 -----------------------------------------------------------
--- 1. BAGIAN LOGIKA SISTEM (BACKEND)
+-- 0. BAGIAN PEMBERSIH (PENTING: MENCEGAH NOTIF DOBEL)
 -----------------------------------------------------------
+-- Mematikan koneksi lama jika script dijalankan ulang
+if getgenv().KenzoConnections then
+    for _, connection in pairs(getgenv().KenzoConnections) do
+        if connection then connection:Disconnect() end
+    end
+end
+getgenv().KenzoConnections = {} -- Reset tabel koneksi
+
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -29,7 +37,7 @@ local CoreGui = game:GetService("CoreGui")
 
 local http_request = http_request or request or (syn and syn.request) or (fluxus and fluxus.request)
 
--- [FIX LOGIKA ANTI-DOUBLE]
+-- Variabel Anti-Duplicate
 local lastCatchID = "" 
 local lastCatchTime = 0 
 
@@ -61,8 +69,8 @@ local function sendWhatsApp(data)
     if not getgenv().KenzoConfig.IsScanning then return end 
 
     local caption = 
-        "*Kenzo HUB | Rare Catch!*\n" ..
-        "🚨 *ALERT! Rare Catch (".. data.chance ..")*\n\n" .. 
+        "*Kenzo HUB | Secret Catch!*\n" ..
+        "🚨 *ALERT! Secret Catch (".. data.chance ..")*\n\n" .. 
         "*👤 Player:* " .. data.player .. "\n" ..
         "*🐟 Fish:* " .. data.fish .. "\n" ..
         "*🧬 Mutation:* " .. data.mutation .. "\n" ..
@@ -90,7 +98,7 @@ end
 -- Test Connection
 local function testConnection()
     local caption = 
-        "*Kenzo HUB | Test Mode V4.2*\n" ..
+        "*Kenzo HUB | Test Mode V4.3*\n" ..
         "✅ *Koneksi Berhasil!*\n" ..
         "Current Filter: " .. getgenv().KenzoConfig.Threshold .. "\n" ..
         "_" .. os.date("%A, %H:%M") .. "_"
@@ -130,6 +138,7 @@ local function processMessage(msg)
         -- [LOGIKA ANTI-DOUBLE V2]
         local currentID = player .. "-" .. fullFishName .. "-" .. weight
         
+        -- Cek waktu kejadian (5 detik debounce)
         if currentID == lastCatchID and (tick() - lastCatchTime) < 5 then
             return
         end
@@ -157,15 +166,20 @@ local function processMessage(msg)
     end
 end
 
--- Listener
+-- Listener & Auto Cleaner Logic
+local conn1, conn2
+
 if ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents") then
-    ReplicatedStorage.DefaultChatSystemChatEvents.OnMessageDoneFiltering.OnClientEvent:Connect(function(data)
+    conn1 = ReplicatedStorage.DefaultChatSystemChatEvents.OnMessageDoneFiltering.OnClientEvent:Connect(function(data)
         if data and data.Message then processMessage(data.Message) end
     end)
+    table.insert(getgenv().KenzoConnections, conn1)
 end
-TextChatService.MessageReceived:Connect(function(textChatMessage)
+
+conn2 = TextChatService.MessageReceived:Connect(function(textChatMessage)
     if textChatMessage and textChatMessage.Text then processMessage(textChatMessage.Text) end
 end)
+table.insert(getgenv().KenzoConnections, conn2)
 
 -----------------------------------------------------------
 -- 2. BAGIAN TAMPILAN UI (FRONTEND - V4)
@@ -201,7 +215,7 @@ MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35) 
 MainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
-MainFrame.Size = UDim2.new(0, 450, 0, 320) -- Diperbesar sedikit
+MainFrame.Size = UDim2.new(0, 450, 0, 320) 
 MainFrame.ClipsDescendants = true
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 10)
@@ -231,7 +245,7 @@ Version.BackgroundTransparency = 1
 Version.Position = UDim2.new(0.65, 0, 0, 0)
 Version.Size = UDim2.new(0.25, 0, 1, 0)
 Version.Font = Enum.Font.Gotham
-Version.Text = "V4.2 Fixed"
+Version.Text = "V4.3 Clean"
 Version.TextColor3 = Color3.fromRGB(150, 150, 150)
 Version.TextSize = 12
 
@@ -344,7 +358,7 @@ InputBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 InputBox.Position = UDim2.new(0.55, 0, 0.2, 0)
 InputBox.Size = UDim2.new(0.4, 0, 0.6, 0)
 InputBox.Font = Enum.Font.GothamBold
-InputBox.Text = "250k" -- Default Display
+InputBox.Text = "250k" 
 InputBox.TextColor3 = Color3.fromRGB(85, 255, 255)
 InputBox.TextSize = 14
 InputBox.PlaceholderText = "e.g 1m"
@@ -352,19 +366,13 @@ local InputBoxCorner = Instance.new("UICorner")
 InputBoxCorner.CornerRadius = UDim.new(0, 6)
 InputBoxCorner.Parent = InputBox
 
--- Logic Input Box
 InputBox.FocusLost:Connect(function(enterPressed)
     local text = InputBox.Text
     local val = parseValue(text)
-    
     if val > 0 then
         getgenv().KenzoConfig.Threshold = val
-        InputBox.Text = text -- Biarkan teksnya
-        game.StarterGui:SetCore("SendNotification", {
-            Title="Filter Updated", 
-            Text="Min Chance set to: " .. text, 
-            Duration=3
-        })
+        InputBox.Text = text 
+        game.StarterGui:SetCore("SendNotification", {Title="Filter Updated", Text="Min Chance set to: " .. text, Duration=3})
     else
         InputBox.Text = "Invalid"
         wait(1)
@@ -434,4 +442,4 @@ MainFrame.InputChanged:Connect(function(input)
 end)
 UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then update(input) end end)
 
-game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V4.2", Text="Anti-Duplicate FIXED!", Duration=5})
+game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V4.3", Text="Anti-Stack Fixed!", Duration=5})
