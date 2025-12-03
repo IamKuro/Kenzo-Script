@@ -231,7 +231,7 @@ Version.BackgroundTransparency = 1
 Version.Position = UDim2.new(0.65, 0, 0, 0)
 Version.Size = UDim2.new(0.25, 0, 1, 0)
 Version.Font = Enum.Font.Gotham
-Version.Text = "V4.1 Fixed"
+Version.Text = "V4.2 Fixed"
 Version.TextColor3 = Color3.fromRGB(150, 150, 150)
 Version.TextSize = 12
 
