@@ -434,4 +434,4 @@ MainFrame.InputChanged:Connect(function(input)
 end)
 UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then update(input) end end)
 
-game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V4.1", Text="Anti-Duplicate FIXED!", Duration=5})
+game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V4.2", Text="Anti-Duplicate FIXED!", Duration=5})
