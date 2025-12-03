@@ -1,11 +1,11 @@
 --[[ 
     🐟 KENZO HUB - GOD MODE EDITION 🐟
-    Version: 4.0 (Custom Threshold)
+    Version: 4.2 (Anti-Duplicate Fix)
     Fitur: 
-    - [NEW] Input Box untuk atur batas Rarity sendiri (Support 500k, 1m, dll)
+    - [FIX] Menggunakan ID Unik + tick() agar tidak spam 3x
+    - Input Box Custom Threshold
     - UI Makori Style + Minimize + Test Button
     - Smart Filter & Math Parser
-    - Anti-Duplicate & Anti-Troll
 ]]
 
 -- ⚠️ KONFIGURASI AWAL
@@ -13,7 +13,7 @@ getgenv().KenzoConfig = {
     Token = "ZvKehiTkNVt8YrYn1xAW",    
     GroupID = "120363044268395313@g.us", 
     IsScanning = false,                 
-    Threshold = 250000                   
+    Threshold = 250000                  
 }
 
 -----------------------------------------------------------
@@ -29,14 +29,15 @@ local CoreGui = game:GetService("CoreGui")
 
 local http_request = http_request or request or (syn and syn.request) or (fluxus and fluxus.request)
 
-local lastSentTime = 0
-local lastMessageContent = ""
+-- [FIX LOGIKA ANTI-DOUBLE]
+local lastCatchID = "" 
+local lastCatchTime = 0 
 
 local knownMutations = {
-    "Big", "Giant", "Skeleton", "Albino", "Dark", "Shiny", "Tiny", 
-    "Midas", "Golden", "Rainbow", "Ghost", "Neon", "Radioactive",
-    "Atlantis", "Void", "Abyssal", "Cursed", "Blessed", "Stone",
-    "Midnight", "Fairy Dust", "Gemstone", "Corrupt", "Galaxy", "Sandy",
+    "Big", "Frozen", "Festive", "Albino", "Shiny", 
+    "Gold", "Rainbow", "Ghost", "Radioactive",
+    "Cursed", "Stone", "Midnight", "Fairy Dust",
+    "Gemstone", "Corrupt", "Galaxy", "Sandy",
     "Lightning"
 }
 
@@ -60,8 +61,8 @@ local function sendWhatsApp(data)
     if not getgenv().KenzoConfig.IsScanning then return end 
 
     local caption = 
-        "*Kenzo HUB | Secret Catch!*\n" ..
-        "🚨 *ALERT! Rare Catch (".. data.chance ..")*\n\n" ..
+        "*Kenzo HUB | Rare Catch!*\n" ..
+        "🚨 *ALERT! Rare Catch (".. data.chance ..")*\n\n" .. 
         "*👤 Player:* " .. data.player .. "\n" ..
         "*🐟 Fish:* " .. data.fish .. "\n" ..
         "*🧬 Mutation:* " .. data.mutation .. "\n" ..
@@ -89,7 +90,7 @@ end
 -- Test Connection
 local function testConnection()
     local caption = 
-        "*Kenzo HUB | Test Mode*\n" ..
+        "*Kenzo HUB | Test Mode V4.2*\n" ..
         "✅ *Koneksi Berhasil!*\n" ..
         "Current Filter: " .. getgenv().KenzoConfig.Threshold .. "\n" ..
         "_" .. os.date("%A, %H:%M") .. "_"
@@ -115,26 +116,30 @@ local function testConnection()
     end
 end
 
--- Processor (Menggunakan Dynamic Threshold)
+-- Processor (Menggunakan Dynamic Threshold & STRICT Anti-Duplicate)
 local function processMessage(msg)
     if not getgenv().KenzoConfig.IsScanning then return end
 
     local cleanMsg = string.gsub(msg, "<.->", "")
 
-    -- Anti-Duplicate
-    if cleanMsg == lastMessageContent and (os.time() - lastSentTime) < 5 then
-        return 
-    end
-
+    -- 1. Uraikan dulu datanya
     local player, fullFishName, weight, chanceRaw = string.match(cleanMsg, "^%[Server%]:%s*(.-)%s+obtained%s+an?%s+(.-)%s+(%([%d%.]+kg%))%s+with%s+a%s+(.-)%s+chance")
     
-    if player and fullFishName and chanceRaw then
+    if player and fullFishName and weight then
+        
+        -- [LOGIKA ANTI-DOUBLE V2]
+        local currentID = player .. "-" .. fullFishName .. "-" .. weight
+        
+        if currentID == lastCatchID and (tick() - lastCatchTime) < 5 then
+            return
+        end
+
         local rarityValue = parseValue(chanceRaw)
         
-        -- [LOGIKA BARU] Bandingkan dengan Config yang bisa diubah user
         if rarityValue >= getgenv().KenzoConfig.Threshold then
-            lastSentTime = os.time()
-            lastMessageContent = cleanMsg 
+            
+            lastCatchID = currentID
+            lastCatchTime = tick() 
             
             local detectedMutation = "None"
             local realFishName = fullFishName
@@ -226,7 +231,7 @@ Version.BackgroundTransparency = 1
 Version.Position = UDim2.new(0.65, 0, 0, 0)
 Version.Size = UDim2.new(0.25, 0, 1, 0)
 Version.Font = Enum.Font.Gotham
-Version.Text = "V4.0 God Mode"
+Version.Text = "V4.1 Fixed"
 Version.TextColor3 = Color3.fromRGB(150, 150, 150)
 Version.TextSize = 12
 
@@ -312,7 +317,7 @@ ToggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- [NEW] FITUR 2: CUSTOM THRESHOLD INPUT
+-- FITUR 2: CUSTOM THRESHOLD INPUT
 local InputFrame = Instance.new("Frame")
 InputFrame.Parent = Content
 InputFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
@@ -354,7 +359,7 @@ InputBox.FocusLost:Connect(function(enterPressed)
     
     if val > 0 then
         getgenv().KenzoConfig.Threshold = val
-        InputBox.Text = text -- Biarkan teksnya (misal "1m")
+        InputBox.Text = text -- Biarkan teksnya
         game.StarterGui:SetCore("SendNotification", {
             Title="Filter Updated", 
             Text="Min Chance set to: " .. text, 
@@ -429,4 +434,4 @@ MainFrame.InputChanged:Connect(function(input)
 end)
 UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then update(input) end end)
 
-game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V4.0", Text="Custom Threshold Ready!", Duration=5})
+game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V4.1", Text="Anti-Duplicate FIXED!", Duration=5})
