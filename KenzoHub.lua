@@ -1,11 +1,10 @@
 --[[ 
     🐟 KENZO HUB - GOD MODE EDITION 🐟
-    Version: 4.3 (Anti-Stacking Fix)
+    Version: 4.4 (Precision Fix)
     Fitur: 
-    - [FIX] Auto-Disconnect: Mematikan script lama saat di-execute ulang (Solusi 6 notif)
-    - Anti-Duplicate: Filter ID Unik & Waktu
-    - Input Box Custom Threshold
-    - UI Makori Style + Minimize + Test Button
+    - [CRITICAL FIX] Memperbaiki kesalahan baca "1 in..."
+    - Script sekarang memotong teks setelah kata "in" agar angka "1" tidak terbaca.
+    - Anti-Stacking & Anti-Duplicate (V4.3)
 ]]
 
 -- ⚠️ KONFIGURASI AWAL
@@ -17,15 +16,14 @@ getgenv().KenzoConfig = {
 }
 
 -----------------------------------------------------------
--- 0. BAGIAN PEMBERSIH (PENTING: MENCEGAH NOTIF DOBEL)
+-- 0. BAGIAN PEMBERSIH (ANTI-STACK)
 -----------------------------------------------------------
--- Mematikan koneksi lama jika script dijalankan ulang
 if getgenv().KenzoConnections then
     for _, connection in pairs(getgenv().KenzoConnections) do
         if connection then connection:Disconnect() end
     end
 end
-getgenv().KenzoConnections = {} -- Reset tabel koneksi
+getgenv().KenzoConnections = {} 
 
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
@@ -37,7 +35,6 @@ local CoreGui = game:GetService("CoreGui")
 
 local http_request = http_request or request or (syn and syn.request) or (fluxus and fluxus.request)
 
--- Variabel Anti-Duplicate
 local lastCatchID = "" 
 local lastCatchTime = 0 
 
@@ -49,16 +46,24 @@ local knownMutations = {
     "Lightning"
 }
 
--- [MESIN PENERJEMAH K/M/B]
+-- [MESIN PENERJEMAH BARU - LEBIH PINTAR]
 local function parseValue(str)
     local cleanStr = string.lower(str)
-    local num = tonumber(string.match(cleanStr, "[%d%.]+"))
+    cleanStr = string.gsub(cleanStr, ",", "") -- Hapus koma
+    
+    local targetText = cleanStr
+    if string.find(cleanStr, "in%s+") then
+        targetText = string.match(cleanStr, "in%s+(.+)") -- Ambil buntutnya
+    end
+    
+    local num = tonumber(string.match(targetText, "[%d%.]+"))
     if not num then return 0 end
     
+    -- Cek Satuan (k/m/b) dari buntut tadi
     local mult = 1
-    if string.find(cleanStr, "k") then mult = 1000
-    elseif string.find(cleanStr, "m") then mult = 1000000
-    elseif string.find(cleanStr, "b") then mult = 1000000000
+    if string.find(targetText, "k") then mult = 1000
+    elseif string.find(targetText, "m") then mult = 1000000
+    elseif string.find(targetText, "b") then mult = 1000000000
     end
     
     return num * mult
@@ -69,8 +74,8 @@ local function sendWhatsApp(data)
     if not getgenv().KenzoConfig.IsScanning then return end 
 
     local caption = 
-        "*Kenzo HUB | Secret Catch!*\n" ..
-        "🚨 *ALERT! Secret Catch (".. data.chance ..")*\n\n" .. 
+        "*Kenzo HUB | Rare Catch!*\n" ..
+        "🚨 *ALERT! Rare Catch (".. data.chance ..")*\n\n" .. 
         "*👤 Player:* " .. data.player .. "\n" ..
         "*🐟 Fish:* " .. data.fish .. "\n" ..
         "*🧬 Mutation:* " .. data.mutation .. "\n" ..
@@ -98,7 +103,7 @@ end
 -- Test Connection
 local function testConnection()
     local caption = 
-        "*Kenzo HUB | Test Mode V4.3*\n" ..
+        "*Kenzo HUB | Test Mode V4.4*\n" ..
         "✅ *Koneksi Berhasil!*\n" ..
         "Current Filter: " .. getgenv().KenzoConfig.Threshold .. "\n" ..
         "_" .. os.date("%A, %H:%M") .. "_"
@@ -124,27 +129,25 @@ local function testConnection()
     end
 end
 
--- Processor (Menggunakan Dynamic Threshold & STRICT Anti-Duplicate)
+-- Processor (Regex Support 'a'/'an' + Anti-Double)
 local function processMessage(msg)
     if not getgenv().KenzoConfig.IsScanning then return end
 
     local cleanMsg = string.gsub(msg, "<.->", "")
 
-    -- 1. Uraikan dulu datanya
-    local player, fullFishName, weight, chanceRaw = string.match(cleanMsg, "^%[Server%]:%s*(.-)%s+obtained%s+an?%s+(.-)%s+(%([%d%.]+kg%))%s+with%s+a%s+(.-)%s+chance")
+    -- Regex: [Server]: Name obtained a/an Fish (Weight) with a Chance chance
+    local player, fullFishName, weight, chanceRaw = string.match(cleanMsg, "^%[Server%]:%s*(.-)%s+obtained%s+an?%s+(.-)%s+(%([%d%.%,]+%s*kg%))%s+with%s+a%s+(.-)%s+chance")
     
     if player and fullFishName and weight then
         
-        -- [LOGIKA ANTI-DOUBLE V2]
+        -- Anti-Double Check (ID Unik + Waktu 5 detik)
         local currentID = player .. "-" .. fullFishName .. "-" .. weight
-        
-        -- Cek waktu kejadian (5 detik debounce)
         if currentID == lastCatchID and (tick() - lastCatchTime) < 5 then
             return
         end
 
         local rarityValue = parseValue(chanceRaw)
-        
+
         if rarityValue >= getgenv().KenzoConfig.Threshold then
             
             lastCatchID = currentID
@@ -182,7 +185,7 @@ end)
 table.insert(getgenv().KenzoConnections, conn2)
 
 -----------------------------------------------------------
--- 2. BAGIAN TAMPILAN UI (FRONTEND - V4)
+-- 2. BAGIAN TAMPILAN UI (FRONTEND)
 -----------------------------------------------------------
 if CoreGui:FindFirstChild("KenzoHUB") then CoreGui.KenzoHUB:Destroy() end
 
@@ -245,7 +248,7 @@ Version.BackgroundTransparency = 1
 Version.Position = UDim2.new(0.65, 0, 0, 0)
 Version.Size = UDim2.new(0.25, 0, 1, 0)
 Version.Font = Enum.Font.Gotham
-Version.Text = "V4.3 Clean"
+Version.Text = "V4.4 Precise"
 Version.TextColor3 = Color3.fromRGB(150, 150, 150)
 Version.TextSize = 12
 
@@ -442,4 +445,4 @@ MainFrame.InputChanged:Connect(function(input)
 end)
 UserInputService.InputChanged:Connect(function(input) if input == dragInput and dragging then update(input) end end)
 
-game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V4.3", Text="Anti-Stack Fixed!", Duration=5})
+game.StarterGui:SetCore("SendNotification", {Title="Kenzo HUB V4.4", Text="Precision Fixed!", Duration=5})
