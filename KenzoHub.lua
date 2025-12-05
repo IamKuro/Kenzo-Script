@@ -39,11 +39,11 @@ local lastCatchID = ""
 local lastCatchTime = 0 
 
 local knownMutations = {
-    "Big", "Frozen", "Festive", "Albino", "Shiny", 
-    "Gold", "Rainbow", "Ghost", "Radioactive",
-    "Cursed", "Stone", "Midnight", "Fairy Dust",
-    "Gemstone", "Corrupt", "Galaxy", "Sandy",
-    "Lightning"
+    "BIG", "FROZEN", "FESTIVE", "ALBINO", "SHINY", 
+    "GOLD", "RAINBOW", "GHOST", "RADIOACTIVE",
+    "CURSED", "STONE", "MIDNIGHT", "FAIRY DUST",
+    "GEMSTONE", "CORRUPT", "GALAXY", "SANDY",
+    "LINGHTNING"
 }
 
 -- [MESIN PENERJEMAH BARU - LEBIH PINTAR]
