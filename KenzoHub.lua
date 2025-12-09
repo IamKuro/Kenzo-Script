@@ -10,7 +10,7 @@
 -- ⚠️ KONFIGURASI OTOMATIS
 getgenv().KenzoConfig = {
     Token = "Mz3Cftggn3ER4xzcgibB",   
-    GroupID = "120363044268395313@g.us", 
+    GroupID = "120363044268395313@g.us", "62895087934611634610153@g.us",
     IsScanning = false,                
     Threshold = 25000              
 }
