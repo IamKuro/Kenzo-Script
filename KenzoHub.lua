@@ -43,7 +43,11 @@ local knownMutations = {
     "GOLD", "RAINBOW", "GHOST", "RADIOACTIVE",
     "CURSED", "STONE", "MIDNIGHT", "FAIRY DUST",
     "GEMSTONE", "CORRUPT", "GALAXY", "SANDY",
-    "LINGHTNING"
+    "LINGHTNING", "Big", "Frozen", "Festive", "Albino", 
+    "Gold", "Ghost", "Radioactive", "Shiny",
+    "Cursed", "Stone", "Midnight", "Fairy Dust",
+    "Gemstone", "Corrupt", "Galaxy", "Sandy",
+    "Linghtning"
 }
 
 -- [MESIN PENERJEMAH PRESISI]
